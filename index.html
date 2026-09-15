@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Desafio do Néfron - Modo Neon (Fases)</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            font-family: 'Orbitron', 'Segoe UI', Roboto, sans-serif;
+        }
+
+        body {
+            background: #050811;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            padding: 10px;
+        }
+
+        #game-container {
+            position: relative;
+            width: min(500px, 96vw, calc(94vh * 500 / 860));
+            aspect-ratio: 500 / 860;
+            max-height: 94vh;
+            background: #0a0f1d;
+            border-radius: 24px;
+            box-shadow: 0 0 50px rgba(0, 242, 254, 0.25), inset 0 0 15px rgba(0, 0, 0, 0.8);
+            overflow: hidden;
+            border: 2px solid rgba(0, 242, 254, 0.3);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(5, 8, 17, 0.92);
+            backdrop-filter: blur(8px);
+            z-index: 10;
+            transition: opacity 0.3s;
+            overflow-y: auto;
+            padding: 20px 10px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        h1 {
+            font-size: 3rem;
+            color: #00f2fe;
+            margin-bottom: 15px;
+            text-shadow: 0 0 20px rgba(0, 242, 254, 0.6);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            text-align: center;
+            width: 100%;
+        }
+
+        p {
+            font-size: 1.1rem;
+            color: #a0aec0;
+            max-width: 80%;
+            text-align: center;
+            margin-bottom: 25px;
+            line-height: 1.6;
+        }
+
+        .legend-box {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            background: rgba(255,255,255,0.03);
+            padding: 20px 30px;
+            border-radius: 16px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(0, 242, 254, 0.2);
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .badge {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            box-shadow: 0 0 10px currentColor;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #00f2fe, #4facfe);
+            color: #050811;
+            border: none;
+            padding: 16px 45px;
+            font-size: 1.2rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 0 25px rgba(0, 242, 254, 0.5);
+            transition: all 0.2s ease-in-out;
+        }
+
+        .btn:hover {
+            transform: scale(1.08);
+            box-shadow: 0 0 35px rgba(0, 242, 254, 0.8);
+        }
+
+        #hud-top {
+            position: absolute;
+            top: 20px;
+            left: 25px;
+            right: 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 5;
+            pointer-events: none;
+            font-size: 0.95rem;
+            font-weight: bold;
+        }
+
+        #hud {
+            position: absolute;
+            top: 68px;
+            left: 25px;
+            right: 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 5;
+            pointer-events: none;
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+
+        .hud-card {
+            background: rgba(10, 15, 29, 0.8);
+            padding: 10px 22px;
+            border-radius: 30px;
+            border: 1px solid rgba(0, 242, 254, 0.3);
+            backdrop-filter: blur(5px);
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
+        }
+
+        .lives { color: #ff2a6d; text-shadow: 0 0 8px rgba(255, 42, 109, 0.6); }
+        .score { color: #00f2fe; text-shadow: 0 0 8px rgba(0, 242, 254, 0.6); }
+        .multiplier { color: #ffe600; text-shadow: 0 0 8px rgba(255, 230, 0, 0.6); }
+        .phase { color: #a78bfa; text-shadow: 0 0 8px rgba(167, 139, 250, 0.6); }
+        .timer { color: #f8fafc; text-shadow: 0 0 8px rgba(248, 250, 252, 0.4); }
+
+        #transition-phase-name { font-size: 2.2rem; }
+        .phase-progress {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .phase-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(0,242,254,0.4);
+        }
+        .phase-dot.done { background: #00f2fe; box-shadow: 0 0 10px #00f2fe; }
+        .phase-dot.current { background: #ffe600; box-shadow: 0 0 10px #ffe600; }
+
+        @media (max-width: 600px) {
+            .ui-layer { justify-content: flex-start; padding: 12px 8px; }
+            h1 { font-size: 1.15rem; margin-bottom: 6px; }
+            p { font-size: 0.68rem; max-width: 96%; margin-bottom: 8px; line-height: 1.3; }
+            .legend-box { grid-template-columns: 1fr 1fr; gap: 5px 10px; padding: 8px 10px; margin-bottom: 8px; }
+            .legend-item { font-size: 0.6rem; gap: 5px; }
+            .badge { width: 9px; height: 9px; flex-shrink: 0; }
+            .btn { padding: 8px 20px; font-size: 0.8rem; margin-bottom: 4px; }
+            #hud-top, #hud { left: 6px; right: 6px; font-size: 0.55rem; }
+            #hud-top { top: 6px; }
+            #hud { top: 30px; }
+            .hud-card { padding: 3px 8px; border-radius: 16px; }
+            .phase-progress { gap: 5px; margin-bottom: 6px; }
+            .phase-dot { width: 8px; height: 8px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="hud-top">
+            <div class="hud-card phase">FASE <span id="phase-val">1</span>/4 — <span id="phase-name-val">GLOMÉRULO</span></div>
+            <div class="hud-card timer">⏱ <span id="timer-val">25</span>s</div>
+        </div>
+        <div id="hud">
+            <div class="hud-card score">PONTOS: <span id="score-val">0</span></div>
+            <div class="hud-card multiplier">COMBO: <span id="combo-val">x1</span></div>
+            <div class="hud-card lives">VIDAS: <span id="lives-val">❤️❤️❤️</span></div>
+        </div>
+
+        <div id="start-screen" class="ui-layer">
+            <h1>NÉFRON CYBER 🧬</h1>
+            <p>O fluxo sanguíneo aumentou! <strong>CLIQUE RÁPIDO</strong> para reabsorver nutrientes bons e deixe as substâncias tóxicas passarem para a urina. Complete as <strong>4 fases</strong> do néfron (Glomérulo → Túbulo Proximal → Alça de Henle → Ducto Coletor) sem perder todas as vidas!</p>
+
+            <div class="legend-box">
+                <div class="legend-item"><div class="badge" style="background:#00f2fe; color:#00f2fe"></div> Água: Clique (Reabsorver)</div>
+                <div class="legend-item"><div class="badge" style="background:#ffe600; color:#ffe600"></div> Glicose: Clique (Reabsorver)</div>
+                <div class="legend-item"><div class="badge" style="background:#00ff87; color:#00ff87"></div> Sódio: Clique (Reabsorver)</div>
+                <div class="legend-item"><div class="badge" style="background:#ff9f43; color:#ff9f43"></div> Ureia: NÃO Clique (Excretar)</div>
+                <div class="legend-item"><div class="badge" style="background:#ff2a2a; color:#ff2a2a"></div> Toxina: NÃO Clique (Excretar)</div>
+                <div class="legend-item"><div class="badge" style="background:#a78bfa; color:#a78bfa"></div> Novidades a cada fase!</div>
+            </div>
+
+            <button class="btn" onclick="startGame()">Iniciar Filtragem</button>
+        </div>
+
+        <div id="phase-transition-screen" class="ui-layer hidden">
+            <div class="phase-progress" id="phase-progress-dots"></div>
+            <h1 id="transition-phase-name">FASE 2</h1>
+            <p id="transition-phase-subtitle">Descrição da fase</p>
+            <button class="btn" onclick="continueToNextPhase()">Continuar</button>
+        </div>
+
+        <div id="win-screen" class="ui-layer hidden">
+            <h1>FILTRAGEM COMPLETA! 🎉</h1>
+            <p id="win-stats">Estatísticas finais</p>
+            <button class="btn" onclick="startGame()">Jogar Novamente</button>
+        </div>
+
+        <div id="game-over-screen" class="ui-layer hidden">
+            <h1>FALHA DE FILTRAGEM!</h1>
+            <p id="final-stats">Seu rim sobrecarregou!</p>
+            <button class="btn" onclick="startGame()">Tentar Novamente</button>
+        </div>
+
+        <canvas id="gameCanvas" width="500" height="860"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const startScreen = document.getElementById('start-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const winScreen = document.getElementById('win-screen');
+        const phaseTransitionScreen = document.getElementById('phase-transition-screen');
+        const scoreVal = document.getElementById('score-val');
+        const comboVal = document.getElementById('combo-val');
+        const livesVal = document.getElementById('lives-val');
+        const phaseVal = document.getElementById('phase-val');
+        const phaseNameVal = document.getElementById('phase-name-val');
+        const timerVal = document.getElementById('timer-val');
+        const finalStats = document.getElementById('final-stats');
+
+        let gameRunning = false;
+        let score = 0;
+        let lives = 3;
+        let combo = 1;
+        let comboTimer = 0;
+        let spawnTimer = 0;
+        let baseSpawnInterval = 45;
+        let particles = [];
+        let molecules = [];
+        let floatTexts = [];
+        let bgGridOffset = 0;
+
+        // --- Progressão de fases ---
+        let currentPhaseIndex = 0;
+        let phaseFramesLeft = 0;
+        let nextPhaseIndex = 0;
+
+        // Estatísticas para o resumo educativo final
+        let reabsorbedPoints = 0;
+        let excretedPoints = 0;
+        let correctActions = 0;
+        let incorrectActions = 0;
+
+        const TYPES = {
+            WATER: { name: 'ÁGUA', color: '#00f2fe', good: true, points: 10, radius: 40 },
+            GLUCOSE: { name: 'GLICOSE', color: '#ffe600', good: true, points: 20, radius: 40 },
+            SODIUM: { name: 'SÓDIO', color: '#00ff87', good: true, points: 15, radius: 40 },
+            UREA: { name: 'UREIA', color: '#ff9f43', good: false, points: 10, radius: 40 },
+            TOXIN: { name: 'TOXINA', color: '#ff2a2a', good: false, points: 25, radius: 40 },
+            POTASSIO: { name: 'POTÁSSIO', color: '#a78bfa', good: true, points: 18, radius: 40, speedMult: 1.05 },
+            BICARBONATO: { name: 'BICARBONATO', color: '#38bdf8', good: true, points: 22, radius: 40 }
+        };
+
+        // Cada fase representa um trecho real do néfron
+        const PHASES = [
+            {
+                name: 'FASE 1: GLOMÉRULO',
+                subtitle: 'Filtração inicial do sangue. Aprenda as 5 substâncias básicas: água, glicose, sódio, ureia e toxina.',
+                duration: 25,
+                activeTypes: ['WATER', 'GLUCOSE', 'SODIUM', 'UREA', 'TOXIN'],
+                spawnInterval: 55,
+                speedMult: 0.6,
+                bg: '#0a0f1d'
+            },
+            {
+                name: 'FASE 2: TÚBULO PROXIMAL',
+                subtitle: 'Cerca de 65% da água e do sódio são reabsorvidos aqui. Novo elemento: Potássio (rápido)!',
+                duration: 25,
+                activeTypes: ['WATER', 'GLUCOSE', 'SODIUM', 'UREA', 'TOXIN', 'POTASSIO'],
+                spawnInterval: 50,
+                speedMult: 0.7,
+                bg: '#0a1420'
+            },
+            {
+                name: 'FASE 3: ALÇA DE HENLE',
+                subtitle: 'Responsável pelo equilíbrio ácido-base. Novo elemento: Bicarbonato!',
+                duration: 25,
+                activeTypes: ['WATER', 'GLUCOSE', 'SODIUM', 'UREA', 'TOXIN', 'POTASSIO', 'BICARBONATO'],
+                spawnInterval: 50,
+                speedMult: 0.7,
+                bg: '#0f0a20'
+            },
+            {
+                name: 'FASE 4: DUCTO COLETOR (FINAL)',
+                subtitle: 'Reta final da filtração! Ajuste fino do equilíbrio de água e eletrólitos antes da urina final.',
+                duration: 30,
+                activeTypes: ['WATER', 'GLUCOSE', 'SODIUM', 'UREA', 'TOXIN', 'POTASSIO', 'BICARBONATO'],
+                spawnInterval: 42,
+                speedMult: 0.8,
+                bg: '#200a14'
+            }
+        ];
+
+        class Molecule {
+            constructor() {
+                const phase = PHASES[currentPhaseIndex];
+                const keys = phase.activeTypes;
+                this.type = TYPES[keys[Math.floor(Math.random() * keys.length)]];
+                this.x = Math.random() * (canvas.width - 160) + 80;
+                this.y = -35;
+                this.hits = 0;
+                this.hitsRequired = this.type.hitsRequired || 1;
+                // Velocidade acelerada conforme a pontuação e a fase avançam (bem suave — pensado para trackpad)
+                const base = Math.random() * 0.7 + 1.1 + (score / 800);
+                this.speed = base * phase.speedMult * (this.type.speedMult || 1);
+                this.radius = this.type.radius;
+                this.pulse = Math.random() * 10;
+                this.swing = Math.random() * 2 - 1;
+            }
+
+            update() {
+                this.y += this.speed;
+                this.x += Math.sin(this.pulse) * this.swing;
+                this.pulse += 0.08;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.beginPath();
+
+                ctx.shadowColor = this.type.color;
+                ctx.shadowBlur = 18;
+
+                const currentRadius = this.radius + Math.sin(this.pulse) * 2;
+                ctx.arc(this.x, this.y, currentRadius, 0, Math.PI * 2);
+                ctx.fillStyle = this.type.color;
+                ctx.fill();
+
+                // Anel externo — branco pulsante se já foi "rachada" (toxina mutante)
+                ctx.strokeStyle = this.hits > 0 ? '#ffffff' : '#ffffff';
+                ctx.lineWidth = this.hits > 0 ? 3.5 : 1.5;
+                ctx.stroke();
+
+                if (this.hitsRequired > 1) {
+                    ctx.font = '900 9px sans-serif';
+                    ctx.fillStyle = '#050811';
+                    ctx.textAlign = 'center';
+                    ctx.shadowBlur = 0;
+                    ctx.fillText(`${this.hits}/${this.hitsRequired}`, this.x, this.y + currentRadius + 12);
+                }
+
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = '#050811';
+                ctx.font = '900 12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.type.name, this.x, this.y);
+
+                ctx.restore();
+            }
+        }
+
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 7 + 2;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.alpha = 1;
+                this.size = Math.random() * 5 + 2;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.alpha -= 0.04;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.alpha);
+                ctx.shadowColor = this.color;
+                ctx.shadowBlur = 10;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class FloatingText {
+            constructor(text, x, y, color) {
+                this.text = text;
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.alpha = 1;
+            }
+
+            update() {
+                this.y -= 2;
+                this.alpha -= 0.025;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.alpha);
+                ctx.shadowColor = this.color;
+                ctx.shadowBlur = 8;
+                ctx.fillStyle = this.color;
+                ctx.font = '900 16px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(this.text, this.x, this.y);
+                ctx.restore();
+            }
+        }
+
+        function handleTap(clientX, clientY) {
+            if (!gameRunning) return;
+
+            const rect = canvas.getBoundingClientRect();
+            // Corrige a escala: a resolução interna do canvas (850x650) pode ser
+            // maior ou menor que o tamanho exibido em tela (ex: celular).
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const mouseX = (clientX - rect.left) * scaleX;
+            const mouseY = (clientY - rect.top) * scaleY;
+
+            for (let i = molecules.length - 1; i >= 0; i--) {
+                const m = molecules[i];
+                const dist = Math.hypot(mouseX - m.x, mouseY - m.y);
+
+                if (dist < m.radius + 28) {
+                    m.hits++;
+
+                    if (m.hits < m.hitsRequired) {
+                        // Ainda não foi suficiente (ex: Toxina Mutante no 1º clique)
+                        createParticles(m.x, m.y, '#ffffff');
+                        addFloatText('RACHANDO...', m.x, m.y, '#ffffff');
+                        updateHUD();
+                        break;
+                    }
+
+                    createParticles(m.x, m.y, m.type.color);
+
+                    if (m.type.good) {
+                        combo++;
+                        comboTimer = 400;
+                        const gained = m.type.points * combo;
+                        score += gained;
+                        reabsorbedPoints += gained;
+                        correctActions++;
+                        addFloatText(`+${gained} REABSORVIDO!`, m.x, m.y, m.type.color);
+                    } else {
+                        combo = 1;
+                        lives--;
+                        incorrectActions++;
+                        addFloatText(`INTOXICAÇÃO! -1 VIDA`, m.x, m.y, '#ff2a6d');
+                    }
+
+                    molecules.splice(i, 1);
+                    updateHUD();
+                    break;
+                }
+            }
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            handleTap(e.clientX, e.clientY);
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (e.touches.length > 0) {
+                handleTap(e.touches[0].clientX, e.touches[0].clientY);
+            }
+        }, { passive: false });
+
+        function createParticles(x, y, color) {
+            for (let i = 0; i < 16; i++) {
+                particles.push(new Particle(x, y, color));
+            }
+        }
+
+        function addFloatText(text, x, y, color) {
+            floatTexts.push(new FloatingText(text, x, y, color));
+        }
+
+        function updateHUD() {
+            scoreVal.innerText = score;
+            comboVal.innerText = `x${combo}`;
+            livesVal.innerText = '❤️'.repeat(Math.max(0, lives));
+
+            if (lives <= 0 && gameRunning) {
+                endGame();
+            }
+        }
+
+        function drawBackground() {
+            const phaseBg = PHASES[currentPhaseIndex].bg;
+            ctx.fillStyle = phaseBg;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.strokeStyle = 'rgba(0, 242, 254, 0.05)';
+            ctx.lineWidth = 1;
+            bgGridOffset = (bgGridOffset + 0.5) % 40;
+
+            for (let x = 0; x < canvas.width; x += 40) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            for (let y = bgGridOffset; y < canvas.height; y += 40) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+
+            ctx.strokeStyle = 'rgba(0, 242, 254, 0.15)';
+            ctx.shadowColor = '#00f2fe';
+            ctx.shadowBlur = 15;
+            ctx.lineWidth = canvas.width * 0.72;
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            ctx.fillStyle = 'rgba(255, 42, 109, 0.2)';
+            ctx.fillRect(0, canvas.height - 35, canvas.width, 35);
+            ctx.fillStyle = '#ff2a6d';
+            ctx.font = '900 13px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('▼ ZONA DE EXCREÇÃO (URINA) ▼', canvas.width / 2, canvas.height - 12);
+        }
+
+        function startGame() {
+            score = 0;
+            lives = 3;
+            combo = 1;
+            molecules = [];
+            particles = [];
+            floatTexts = [];
+            reabsorbedPoints = 0;
+            excretedPoints = 0;
+            correctActions = 0;
+            incorrectActions = 0;
+
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            winScreen.classList.add('hidden');
+            phaseTransitionScreen.classList.add('hidden');
+
+            goToPhase(0);
+        }
+
+        function goToPhase(index) {
+            currentPhaseIndex = index;
+            const phase = PHASES[index];
+            phaseFramesLeft = phase.duration * 60;
+            spawnTimer = 0;
+            molecules = [];
+            particles = [];
+            floatTexts = [];
+
+            phaseVal.innerText = `${index + 1}`;
+            phaseNameVal.innerText = phase.name.split(': ')[1] || phase.name;
+            timerVal.innerText = phase.duration;
+
+            updateHUD();
+            gameRunning = true;
+            requestAnimationFrame(gameLoop);
+        }
+
+        function renderPhaseDots(upToIndex) {
+            const container = document.getElementById('phase-progress-dots');
+            container.innerHTML = '';
+            for (let i = 0; i < PHASES.length; i++) {
+                const dot = document.createElement('div');
+                dot.className = 'phase-dot' + (i < upToIndex ? ' done' : (i === upToIndex ? ' current' : ''));
+                container.appendChild(dot);
+            }
+        }
+
+        function showPhaseTransition(idx) {
+            nextPhaseIndex = idx;
+            const phase = PHASES[idx];
+            document.getElementById('transition-phase-name').innerText = phase.name;
+            document.getElementById('transition-phase-subtitle').innerText = phase.subtitle;
+            renderPhaseDots(idx);
+            phaseTransitionScreen.classList.remove('hidden');
+        }
+
+        function continueToNextPhase() {
+            phaseTransitionScreen.classList.add('hidden');
+            goToPhase(nextPhaseIndex);
+        }
+
+        function computeEfficiency() {
+            const total = correctActions + incorrectActions;
+            return total > 0 ? Math.round((correctActions / total) * 100) : 0;
+        }
+
+        function endGame() {
+            gameRunning = false;
+            const efficiency = computeEfficiency();
+            finalStats.innerHTML = `Você chegou até a <strong>${PHASES[currentPhaseIndex].name}</strong><br>` +
+                `Pontuação Final: <strong>${score} PONTOS</strong><br>` +
+                `Eficiência renal: <strong>${efficiency}%</strong><br>` +
+                `A taxa de filtração ficou muito alta para o seu sistema!`;
+            gameOverScreen.classList.remove('hidden');
+        }
+
+        function showWinScreen() {
+            gameRunning = false;
+            const efficiency = computeEfficiency();
+            document.getElementById('win-stats').innerHTML =
+                `Pontuação Final: <strong>${score} PONTOS</strong><br>` +
+                `Reabsorvido: <strong>${reabsorbedPoints}</strong> | Excretado corretamente: <strong>${excretedPoints}</strong><br>` +
+                `Eficiência renal: <strong>${efficiency}%</strong>`;
+            winScreen.classList.remove('hidden');
+        }
+
+        function gameLoop() {
+            if (!gameRunning) return;
+
+            drawBackground();
+
+            const phase = PHASES[currentPhaseIndex];
+
+            // Contagem regressiva da fase
+            phaseFramesLeft--;
+            timerVal.innerText = Math.max(0, Math.ceil(phaseFramesLeft / 60));
+
+            if (phaseFramesLeft <= 0) {
+                gameRunning = false;
+                molecules = [];
+                particles = [];
+                floatTexts = [];
+                if (currentPhaseIndex < PHASES.length - 1) {
+                    showPhaseTransition(currentPhaseIndex + 1);
+                } else {
+                    showWinScreen();
+                }
+                return;
+            }
+
+            if (comboTimer > 0) {
+                comboTimer--;
+            } else {
+                combo = 1;
+                comboVal.innerText = `x${combo}`;
+            }
+
+            spawnTimer++;
+            const dynamicInterval = Math.max(20, phase.spawnInterval - Math.floor(score / 300));
+            if (spawnTimer >= dynamicInterval) {
+                molecules.push(new Molecule());
+                spawnTimer = 0;
+            }
+
+            for (let i = molecules.length - 1; i >= 0; i--) {
+                const m = molecules[i];
+                m.update();
+                m.draw();
+
+                if (m.y > canvas.height - 35) {
+                    if (m.type.good) {
+                        lives--;
+                        combo = 1;
+                        incorrectActions++;
+                        addFloatText(`NUTRIENTE PERDIDO! -1 VIDA`, m.x, canvas.height - 50, '#ff2a6d');
+                        updateHUD();
+                    } else {
+                        const gained = m.type.points;
+                        score += gained;
+                        excretedPoints += gained;
+                        correctActions++;
+                        addFloatText(`EXCRETADO! +${gained}`, m.x, canvas.height - 50, '#00ff87');
+                        updateHUD();
+                    }
+                    molecules.splice(i, 1);
+                }
+            }
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                particles[i].draw();
+                if (particles[i].alpha <= 0) particles.splice(i, 1);
+            }
+
+            for (let i = floatTexts.length - 1; i >= 0; i--) {
+                floatTexts[i].update();
+                floatTexts[i].draw();
+                if (floatTexts[i].alpha <= 0) floatTexts.splice(i, 1);
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+    </script>
+</body>
+</html>
