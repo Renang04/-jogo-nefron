@@ -213,27 +213,28 @@
 
     <div id="game-container">
         <div id="hud-top">
-            <div class="hud-card phase">FASE <span id="phase-val">1</span>/4 — <span id="phase-name-val">GLOMÉRULO</span></div>
+            <div class="hud-card phase">FASE <span id="phase-val">1</span>/5 — <span id="phase-name-val">GLOMÉRULO</span></div>
             <div class="hud-card timer">⏱ <span id="timer-val">25</span>s</div>
         </div>
         <div id="hud">
-            <div class="hud-card score">PONTOS: <span id="score-val">0</span></div>
-            <div class="hud-card multiplier">COMBO: <span id="combo-val">x1</span></div>
+            <div class="hud-card score" id="score-card">PONTOS: <span id="score-val">0</span></div>
+            <div class="hud-card multiplier" id="combo-card">COMBO: <span id="combo-val">x1</span></div>
             <div class="hud-card lives">VIDAS: <span id="lives-val">❤️❤️❤️</span></div>
         </div>
 
         <div id="start-screen" class="ui-layer">
             <h1>NÉFRON CYBER 🧬</h1>
-            <p>O fluxo sanguíneo aumentou! <strong>CLIQUE RÁPIDO</strong> para reabsorver nutrientes bons e deixe as substâncias tóxicas passarem para a urina. Complete as <strong>4 fases</strong> do néfron (Glomérulo → Túbulo Proximal → Alça de Henle → Ducto Coletor) sem perder todas as vidas!</p>
+            <p>Bem-vindo(a) ao néfron! Clique nas substâncias boas pra <strong>ABSORVER</strong> e deixe as ruins caírem pra <strong>EXCRETAR</strong>. Sobreviva <strong>20 segundos</strong> sem perder as 3 vidas pra desbloquear a próxima fase — cada fase traz uma substância nova!</p>
 
             <div class="legend-box">
-                <div class="legend-item"><div class="badge" style="background:#00f2fe; color:#00f2fe"></div> Água: Clique (Reabsorver)</div>
-                <div class="legend-item"><div class="badge" style="background:#ffe600; color:#ffe600"></div> Glicose: Clique (Reabsorver)</div>
-                <div class="legend-item"><div class="badge" style="background:#00ff87; color:#00ff87"></div> Sódio: Clique (Reabsorver)</div>
-                <div class="legend-item"><div class="badge" style="background:#ff9f43; color:#ff9f43"></div> Ureia: NÃO Clique (Excretar)</div>
-                <div class="legend-item"><div class="badge" style="background:#ff2a2a; color:#ff2a2a"></div> Toxina: NÃO Clique (Excretar)</div>
-                <div class="legend-item"><div class="badge" style="background:#a78bfa; color:#a78bfa"></div> Novidades a cada fase!</div>
+                <div class="legend-item"><div class="badge" style="background:#00f2fe; color:#00f2fe; border-radius:50%;"></div> Água: Clique (Absorver)</div>
+                <div class="legend-item"><div class="badge" style="background:#ff2a2a; color:#ff2a2a; border-radius:4px;"></div> Toxina: NÃO Clique (Excretar)</div>
             </div>
+
+            <label style="display:flex; align-items:center; gap:8px; margin-bottom:20px; font-size:0.9rem; cursor:pointer;">
+                <input type="checkbox" id="colorblind-toggle" style="width:18px; height:18px; cursor:pointer;">
+                👁️ Modo Acessível (cores + formas)
+            </label>
 
             <button class="btn" onclick="startGame()">Iniciar Filtragem</button>
         </div>
@@ -245,16 +246,10 @@
             <button class="btn" onclick="continueToNextPhase()">Continuar</button>
         </div>
 
-        <div id="win-screen" class="ui-layer hidden">
-            <h1>FILTRAGEM COMPLETA! 🎉</h1>
-            <p id="win-stats">Estatísticas finais</p>
-            <button class="btn" onclick="startGame()">Jogar Novamente</button>
-        </div>
-
         <div id="game-over-screen" class="ui-layer hidden">
             <h1>FALHA DE FILTRAGEM!</h1>
             <p id="final-stats">Seu rim sobrecarregou!</p>
-            <button class="btn" onclick="startGame()">Tentar Novamente</button>
+            <button class="btn" onclick="retryCurrentPhase()">Tentar Novamente</button>
         </div>
 
         <canvas id="gameCanvas" width="500" height="860"></canvas>
@@ -266,7 +261,6 @@
 
         const startScreen = document.getElementById('start-screen');
         const gameOverScreen = document.getElementById('game-over-screen');
-        const winScreen = document.getElementById('win-screen');
         const phaseTransitionScreen = document.getElementById('phase-transition-screen');
         const scoreVal = document.getElementById('score-val');
         const comboVal = document.getElementById('combo-val');
@@ -300,54 +294,76 @@
         let incorrectActions = 0;
 
         const TYPES = {
-            WATER: { name: 'ÁGUA', color: '#00f2fe', good: true, points: 10, radius: 40 },
-            GLUCOSE: { name: 'GLICOSE', color: '#ffe600', good: true, points: 20, radius: 40 },
-            SODIUM: { name: 'SÓDIO', color: '#00ff87', good: true, points: 15, radius: 40 },
-            UREA: { name: 'UREIA', color: '#ff9f43', good: false, points: 10, radius: 40 },
-            TOXIN: { name: 'TOXINA', color: '#ff2a2a', good: false, points: 25, radius: 40 },
-            POTASSIO: { name: 'POTÁSSIO', color: '#a78bfa', good: true, points: 18, radius: 40, speedMult: 1.05 },
-            BICARBONATO: { name: 'BICARBONATO', color: '#38bdf8', good: true, points: 22, radius: 40 }
+            WATER: { name: 'ÁGUA', color: '#00f2fe', cbColor: '#0072B2', good: true, points: 10, radius: 40 },
+            GLUCOSE: { name: 'GLICOSE', color: '#ffe600', cbColor: '#F0E442', good: true, points: 20, radius: 40 },
+            SODIUM: { name: 'SÓDIO', color: '#00ff87', cbColor: '#009E73', good: true, points: 15, radius: 40 },
+            UREA: { name: 'UREIA', color: '#ff9f43', cbColor: '#ff9f43', good: false, points: 10, radius: 40 },
+            TOXIN: { name: 'TOXINA', color: '#ff2a2a', cbColor: '#ff2a2a', good: false, points: 25, radius: 40 },
+            POTASSIO: { name: 'POTÁSSIO', color: '#a78bfa', cbColor: '#CC79A7', good: true, points: 18, radius: 40 }
         };
 
-        // Cada fase representa um trecho real do néfron
+        // Cada fase representa um trecho real do néfron, desbloqueando substâncias aos poucos.
+        // Fases 1-4: modo fácil, tempo fixo de 20s sobrevivendo para avançar.
+        // Fase 5: infinita, sem limite de tempo, dificuldade cresce com a pontuação.
         const PHASES = [
             {
                 name: 'FASE 1: GLOMÉRULO',
-                subtitle: 'Filtração inicial do sangue. Aprenda as 5 substâncias básicas: água, glicose, sódio, ureia e toxina.',
-                duration: 25,
-                activeTypes: ['WATER', 'GLUCOSE', 'SODIUM', 'UREA', 'TOXIN'],
-                spawnInterval: 55,
-                speedMult: 0.6,
+                unlockTitle: 'FASE 1: GLOMÉRULO',
+                subtitle: 'A ÁGUA (azul) o corpo precisa — CLIQUE para absorver! Já a TOXINA (vermelha) é lixo — deixe ela cair para excretar!',
+                duration: 20,
+                activeTypes: ['WATER', 'TOXIN'],
+                spawnInterval: 46,
+                speedMult: 0.85,
+                endless: false,
                 bg: '#0a0f1d'
             },
             {
                 name: 'FASE 2: TÚBULO PROXIMAL',
-                subtitle: 'Cerca de 65% da água e do sódio são reabsorvidos aqui. Novo elemento: Potássio (rápido)!',
-                duration: 25,
-                activeTypes: ['WATER', 'GLUCOSE', 'SODIUM', 'UREA', 'TOXIN', 'POTASSIO'],
-                spawnInterval: 50,
-                speedMult: 0.7,
+                unlockTitle: 'FASE 2 DESBLOQUEADA!',
+                subtitle: 'Novidade: GLICOSE! 🟡 É um tipo de açúcar que dá energia pro seu corpo funcionar — por isso ela precisa ser ABSORVIDA. Clique nela sempre que aparecer, igual você faz com a água!',
+                duration: 20,
+                activeTypes: ['WATER', 'TOXIN', 'GLUCOSE'],
+                spawnInterval: 42,
+                speedMult: 0.9,
+                endless: false,
                 bg: '#0a1420'
             },
             {
                 name: 'FASE 3: ALÇA DE HENLE',
-                subtitle: 'Responsável pelo equilíbrio ácido-base. Novo elemento: Bicarbonato!',
-                duration: 25,
-                activeTypes: ['WATER', 'GLUCOSE', 'SODIUM', 'UREA', 'TOXIN', 'POTASSIO', 'BICARBONATO'],
-                spawnInterval: 50,
-                speedMult: 0.7,
+                unlockTitle: 'FASE 3 DESBLOQUEADA!',
+                subtitle: 'Novidade: SÓDIO! 🟢 Ele ajuda a controlar a água do corpo e faz os músculos e nervos funcionarem direito. Por isso também deve ser ABSORVIDO — clique nele quando cair!',
+                duration: 20,
+                activeTypes: ['WATER', 'TOXIN', 'GLUCOSE', 'SODIUM'],
+                spawnInterval: 38,
+                speedMult: 0.95,
+                endless: false,
                 bg: '#0f0a20'
             },
             {
-                name: 'FASE 4: DUCTO COLETOR (FINAL)',
-                subtitle: 'Reta final da filtração! Ajuste fino do equilíbrio de água e eletrólitos antes da urina final.',
-                duration: 30,
-                activeTypes: ['WATER', 'GLUCOSE', 'SODIUM', 'UREA', 'TOXIN', 'POTASSIO', 'BICARBONATO'],
-                spawnInterval: 42,
-                speedMult: 0.8,
+                name: 'FASE 4: DUCTO COLETOR',
+                unlockTitle: 'FASE 4 DESBLOQUEADA!',
+                subtitle: 'Duas novidades de uma vez! 🟣 POTÁSSIO ajuda o coração e os músculos a trabalharem direito — ABSORVA! 🟠 UREIA é um resto que sobra depois que o corpo usa as proteínas e não serve mais pra nada — por isso deve ser EXCRETADA, então deixe-a cair sem clicar!',
+                duration: 20,
+                activeTypes: ['WATER', 'TOXIN', 'GLUCOSE', 'SODIUM', 'POTASSIO', 'UREA'],
+                spawnInterval: 34,
+                speedMult: 1.0,
+                endless: false,
+                bg: '#170a1a'
+            },
+            {
+                name: 'FASE 5: MODO INFINITO',
+                unlockTitle: 'FASE FINAL DESBLOQUEADA!',
+                subtitle: 'Agora não tem mais tempo! O desafio é ver até onde você consegue chegar. Continue absorvendo o que é bom e excretando o que é lixo — mas fique esperto, a velocidade vai aumentando aos poucos conforme sua pontuação sobe!',
+                duration: Infinity,
+                activeTypes: ['WATER', 'TOXIN', 'GLUCOSE', 'SODIUM', 'POTASSIO', 'UREA'],
+                spawnInterval: 34,
+                speedMult: 1.0,
+                endless: true,
                 bg: '#200a14'
             }
         ];
+
+        let colorblindMode = false;
 
         class Molecule {
             constructor() {
@@ -358,8 +374,12 @@
                 this.y = -35;
                 this.hits = 0;
                 this.hitsRequired = this.type.hitsRequired || 1;
-                // Velocidade acelerada conforme a pontuação e a fase avançam (bem suave — pensado para trackpad)
-                const base = Math.random() * 0.7 + 1.1 + (score / 800);
+                // Fases 1-4: velocidade fixa (mesma faixa base em todas, variando só pelo speedMult da fase).
+                // Fase 5 (infinita): começa igual à fase 4 e sobe BEM aos poucos conforme a pontuação.
+                let base = Math.random() * 0.6 + 1.3;
+                if (phase.endless) {
+                    base += score / 3000;
+                }
                 this.speed = base * phase.speedMult * (this.type.speedMult || 1);
                 this.radius = this.type.radius;
                 this.pulse = Math.random() * 10;
@@ -374,18 +394,39 @@
 
             draw() {
                 ctx.save();
-                ctx.beginPath();
 
-                ctx.shadowColor = this.type.color;
+                const fillColor = colorblindMode ? this.type.cbColor : this.type.color;
+                ctx.shadowColor = fillColor;
                 ctx.shadowBlur = 18;
 
                 const currentRadius = this.radius + Math.sin(this.pulse) * 2;
-                ctx.arc(this.x, this.y, currentRadius, 0, Math.PI * 2);
-                ctx.fillStyle = this.type.color;
+
+                // Modo acessível: substâncias a EXCRETAR viram quadrado (formato, não só cor, identifica)
+                const useSquare = colorblindMode && !this.type.good;
+
+                ctx.beginPath();
+                if (useSquare) {
+                    const side = currentRadius * 1.6;
+                    const r = 10; // cantos arredondados
+                    const x0 = this.x - side / 2;
+                    const y0 = this.y - side / 2;
+                    ctx.moveTo(x0 + r, y0);
+                    ctx.lineTo(x0 + side - r, y0);
+                    ctx.arcTo(x0 + side, y0, x0 + side, y0 + r, r);
+                    ctx.lineTo(x0 + side, y0 + side - r);
+                    ctx.arcTo(x0 + side, y0 + side, x0 + side - r, y0 + side, r);
+                    ctx.lineTo(x0 + r, y0 + side);
+                    ctx.arcTo(x0, y0 + side, x0, y0 + side - r, r);
+                    ctx.lineTo(x0, y0 + r);
+                    ctx.arcTo(x0, y0, x0 + r, y0, r);
+                    ctx.closePath();
+                } else {
+                    ctx.arc(this.x, this.y, currentRadius, 0, Math.PI * 2);
+                }
+                ctx.fillStyle = fillColor;
                 ctx.fill();
 
-                // Anel externo — branco pulsante se já foi "rachada" (toxina mutante)
-                ctx.strokeStyle = this.hits > 0 ? '#ffffff' : '#ffffff';
+                ctx.strokeStyle = '#ffffff';
                 ctx.lineWidth = this.hits > 0 ? 3.5 : 1.5;
                 ctx.stroke();
 
@@ -399,9 +440,9 @@
 
                 ctx.shadowBlur = 0;
                 ctx.fillStyle = '#050811';
-                ctx.font = '900 12px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
+                ctx.font = '900 12px sans-serif';
                 ctx.fillText(this.type.name, this.x, this.y);
 
                 ctx.restore();
@@ -495,14 +536,20 @@
 
                     createParticles(m.x, m.y, m.type.color);
 
+                    const phaseNow = PHASES[currentPhaseIndex];
+
                     if (m.type.good) {
                         combo++;
                         comboTimer = 400;
-                        const gained = m.type.points * combo;
-                        score += gained;
-                        reabsorbedPoints += gained;
                         correctActions++;
-                        addFloatText(`+${gained} REABSORVIDO!`, m.x, m.y, m.type.color);
+                        if (phaseNow.endless) {
+                            const gained = m.type.points * combo;
+                            score += gained;
+                            reabsorbedPoints += gained;
+                            addFloatText(`+${gained} REABSORVIDO!`, m.x, m.y, m.type.color);
+                        } else {
+                            addFloatText(`ABSORVIDO!`, m.x, m.y, m.type.color);
+                        }
                     } else {
                         combo = 1;
                         lives--;
@@ -602,16 +649,36 @@
 
             startScreen.classList.add('hidden');
             gameOverScreen.classList.add('hidden');
-            winScreen.classList.add('hidden');
             phaseTransitionScreen.classList.add('hidden');
 
+            colorblindMode = document.getElementById('colorblind-toggle').checked;
+
             goToPhase(0);
+        }
+
+        function retryCurrentPhase() {
+            // Perdeu as 3 vidas: volta pra fase em que estava, não pro início do jogo
+            score = 0;
+            lives = 3;
+            combo = 1;
+            molecules = [];
+            particles = [];
+            floatTexts = [];
+            reabsorbedPoints = 0;
+            excretedPoints = 0;
+            correctActions = 0;
+            incorrectActions = 0;
+
+            gameOverScreen.classList.add('hidden');
+            phaseTransitionScreen.classList.add('hidden');
+
+            goToPhase(currentPhaseIndex);
         }
 
         function goToPhase(index) {
             currentPhaseIndex = index;
             const phase = PHASES[index];
-            phaseFramesLeft = phase.duration * 60;
+            phaseFramesLeft = phase.endless ? Infinity : phase.duration * 60;
             spawnTimer = 0;
             molecules = [];
             particles = [];
@@ -619,7 +686,11 @@
 
             phaseVal.innerText = `${index + 1}`;
             phaseNameVal.innerText = phase.name.split(': ')[1] || phase.name;
-            timerVal.innerText = phase.duration;
+            timerVal.innerText = phase.endless ? '∞' : phase.duration;
+
+            // Pontuação só existe na fase 5 (infinita) — some nas 4 primeiras fases
+            document.getElementById('score-card').style.display = phase.endless ? '' : 'none';
+            document.getElementById('combo-card').style.display = phase.endless ? '' : 'none';
 
             updateHUD();
             gameRunning = true;
@@ -639,7 +710,7 @@
         function showPhaseTransition(idx) {
             nextPhaseIndex = idx;
             const phase = PHASES[idx];
-            document.getElementById('transition-phase-name').innerText = phase.name;
+            document.getElementById('transition-phase-name').innerText = phase.unlockTitle || phase.name;
             document.getElementById('transition-phase-subtitle').innerText = phase.subtitle;
             renderPhaseDots(idx);
             phaseTransitionScreen.classList.remove('hidden');
@@ -658,21 +729,13 @@
         function endGame() {
             gameRunning = false;
             const efficiency = computeEfficiency();
-            finalStats.innerHTML = `Você chegou até a <strong>${PHASES[currentPhaseIndex].name}</strong><br>` +
+            const phase = PHASES[currentPhaseIndex];
+            const chegouLabel = phase.endless ? 'FASE 5' : phase.name;
+            finalStats.innerHTML = `Você chegou até a <strong>${chegouLabel}</strong><br>` +
                 `Pontuação Final: <strong>${score} PONTOS</strong><br>` +
                 `Eficiência renal: <strong>${efficiency}%</strong><br>` +
                 `A taxa de filtração ficou muito alta para o seu sistema!`;
             gameOverScreen.classList.remove('hidden');
-        }
-
-        function showWinScreen() {
-            gameRunning = false;
-            const efficiency = computeEfficiency();
-            document.getElementById('win-stats').innerHTML =
-                `Pontuação Final: <strong>${score} PONTOS</strong><br>` +
-                `Reabsorvido: <strong>${reabsorbedPoints}</strong> | Excretado corretamente: <strong>${excretedPoints}</strong><br>` +
-                `Eficiência renal: <strong>${efficiency}%</strong>`;
-            winScreen.classList.remove('hidden');
         }
 
         function gameLoop() {
@@ -682,21 +745,19 @@
 
             const phase = PHASES[currentPhaseIndex];
 
-            // Contagem regressiva da fase
-            phaseFramesLeft--;
-            timerVal.innerText = Math.max(0, Math.ceil(phaseFramesLeft / 60));
+            // Contagem regressiva da fase (fase infinita não tem cronômetro)
+            if (!phase.endless) {
+                phaseFramesLeft--;
+                timerVal.innerText = Math.max(0, Math.ceil(phaseFramesLeft / 60));
 
-            if (phaseFramesLeft <= 0) {
-                gameRunning = false;
-                molecules = [];
-                particles = [];
-                floatTexts = [];
-                if (currentPhaseIndex < PHASES.length - 1) {
+                if (phaseFramesLeft <= 0) {
+                    gameRunning = false;
+                    molecules = [];
+                    particles = [];
+                    floatTexts = [];
                     showPhaseTransition(currentPhaseIndex + 1);
-                } else {
-                    showWinScreen();
+                    return;
                 }
-                return;
             }
 
             if (comboTimer > 0) {
@@ -707,7 +768,9 @@
             }
 
             spawnTimer++;
-            const dynamicInterval = Math.max(20, phase.spawnInterval - Math.floor(score / 300));
+            const dynamicInterval = phase.endless
+                ? Math.max(18, phase.spawnInterval - Math.floor(score / 1000))
+                : phase.spawnInterval;
             if (spawnTimer >= dynamicInterval) {
                 molecules.push(new Molecule());
                 spawnTimer = 0;
@@ -726,11 +789,15 @@
                         addFloatText(`NUTRIENTE PERDIDO! -1 VIDA`, m.x, canvas.height - 50, '#ff2a6d');
                         updateHUD();
                     } else {
-                        const gained = m.type.points;
-                        score += gained;
-                        excretedPoints += gained;
                         correctActions++;
-                        addFloatText(`EXCRETADO! +${gained}`, m.x, canvas.height - 50, '#00ff87');
+                        if (phase.endless) {
+                            const gained = m.type.points;
+                            score += gained;
+                            excretedPoints += gained;
+                            addFloatText(`EXCRETADO! +${gained}`, m.x, canvas.height - 50, '#00ff87');
+                        } else {
+                            addFloatText(`EXCRETADO!`, m.x, canvas.height - 50, '#00ff87');
+                        }
                         updateHUD();
                     }
                     molecules.splice(i, 1);
