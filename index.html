@@ -226,6 +226,22 @@
             <h1>NÉFRON CYBER 🧬</h1>
             <p>Bem-vindo(a) ao néfron! Clique nas substâncias boas pra <strong>ABSORVER</strong> e deixe as ruins caírem pra <strong>EXCRETAR</strong>. Sobreviva <strong>20 segundos</strong> sem perder as 3 vidas pra desbloquear a próxima fase — cada fase traz uma substância nova!</p>
 
+            <div style="display:flex; flex-direction:column; gap:10px; width:100%; max-width:320px; margin-bottom:16px;">
+                <input type="text" id="player-name" placeholder="Digite seu nome" maxlength="30" style="padding:12px 14px; border-radius:10px; border:1px solid rgba(0,242,254,0.4); background:rgba(255,255,255,0.06); color:#fff; font-size:0.95rem; font-family:inherit;">
+                <select id="player-grau" style="padding:12px 14px; border-radius:10px; border:1px solid rgba(0,242,254,0.4); background:#0a0f1d; color:#fff; font-size:0.95rem; font-family:inherit;">
+                    <option value="Fundamental">Fundamental</option>
+                    <option value="Médio">Médio</option>
+                    <option value="Graduação">Graduação</option>
+                    <option value="Pós-graduação">Pós-graduação</option>
+                    <option value="Visitante">Visitante</option>
+                </select>
+            </div>
+
+            <div class="ranking-box" id="ranking-box-start" style="width:100%; max-width:320px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,230,0,0.3); border-radius:14px; padding:12px 16px; margin-bottom:18px; text-align:left;">
+                <div style="color:#ffe600; font-weight:900; font-size:0.9rem; margin-bottom:6px;">🏆 TOP 3 — FASE 5</div>
+                <p style="opacity:0.6; font-size:0.85rem; margin:0;">Carregando ranking...</p>
+            </div>
+
             <div class="legend-box">
                 <div class="legend-item"><div class="badge" style="background:#00f2fe; color:#00f2fe; border-radius:50%;"></div> Água: Clique (Absorver)</div>
                 <div class="legend-item"><div class="badge" style="background:#ff2a2a; color:#ff2a2a; border-radius:4px;"></div> Toxina: NÃO Clique (Excretar)</div>
@@ -249,7 +265,13 @@
         <div id="game-over-screen" class="ui-layer hidden">
             <h1>FALHA DE FILTRAGEM!</h1>
             <p id="final-stats">Seu rim sobrecarregou!</p>
-            <button class="btn" onclick="retryCurrentPhase()">Tentar Novamente</button>
+            <div class="ranking-box" id="ranking-box-gameover" style="width:100%; max-width:320px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,230,0,0.3); border-radius:14px; padding:12px 16px; margin-bottom:18px; text-align:left;">
+                <div style="color:#ffe600; font-weight:900; font-size:0.9rem; margin-bottom:0;">🏆 TOP 3 — FASE 5</div>
+            </div>
+            <div style="display:flex; gap:10px; width:100%; max-width:320px;">
+                <button class="btn" style="flex:1; padding:16px 10px; font-size:1rem;" onclick="retryCurrentPhase()">Tentar Novamente</button>
+                <button class="btn" style="flex:1; padding:16px 10px; font-size:1rem; background:transparent; border:2px solid #00f2fe; color:#00f2fe; box-shadow:none;" onclick="backToStart()">Voltar ao Início</button>
+            </div>
         </div>
 
         <canvas id="gameCanvas" width="500" height="860"></canvas>
@@ -281,6 +303,48 @@
         let molecules = [];
         let floatTexts = [];
         let bgGridOffset = 0;
+        let playerName = '';
+        let playerGrau = '';
+
+        // --- Ranking (Google Sheets via Apps Script) ---
+        const RANKING_URL = 'https://script.google.com/macros/s/AKfycbxsxOJtCZHkI7PdTT9Wnw3JOFYk0U-GGoQSimlA7hhUrdgyvKi90AZ2sl9TbJKkps8/exec';
+
+        function submitScore(nome, grau, pontuacao) {
+            fetch(RANKING_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({ nome: nome, grau: grau, pontuacao: pontuacao })
+            }).then(function () {
+                setTimeout(fetchRanking, 1500);
+            }).catch(function () {});
+        }
+
+        function fetchRanking() {
+            fetch(RANKING_URL)
+                .then(function (r) { return r.json(); })
+                .then(renderRanking)
+                .catch(function () {});
+        }
+
+        function renderRanking(data) {
+            const boxes = document.querySelectorAll('.ranking-box');
+            const medals = ['🥇', '🥈', '🥉'];
+            let html = '<div style="color:#ffe600; font-weight:900; font-size:0.9rem; margin-bottom:8px;">🏆 TOP 3 — FASE 5</div>';
+            if (!data || data.length === 0) {
+                html += '<p style="opacity:0.6; font-size:0.85rem; margin:0;">Ainda não há pontuações registradas. Seja o primeiro!</p>';
+            } else {
+                data.forEach(function (row, i) {
+                    html += '<div style="display:flex; justify-content:space-between; gap:10px; font-size:0.8rem; margin-bottom:5px;">' +
+                        '<span>' + (medals[i] || '') + ' ' + row.nome + '</span>' +
+                        '<span style="color:#00f2fe; font-weight:bold;">' + row.pontuacao + ' pts</span>' +
+                        '</div>';
+                });
+            }
+            boxes.forEach(function (box) { box.innerHTML = html; });
+        }
+
+        fetchRanking();
 
         // --- Progressão de fases ---
         let currentPhaseIndex = 0;
@@ -636,6 +700,16 @@
         }
 
         function startGame() {
+            const nameInput = document.getElementById('player-name');
+            if (!nameInput.value.trim()) {
+                nameInput.style.borderColor = '#ff2a2a';
+                nameInput.placeholder = 'Digite seu nome pra continuar!';
+                nameInput.focus();
+                return;
+            }
+            playerName = nameInput.value.trim();
+            playerGrau = document.getElementById('player-grau').value;
+
             score = 0;
             lives = 3;
             combo = 1;
@@ -673,6 +747,25 @@
             phaseTransitionScreen.classList.add('hidden');
 
             goToPhase(currentPhaseIndex);
+        }
+
+        function backToStart() {
+            gameRunning = false;
+            molecules = [];
+            particles = [];
+            floatTexts = [];
+
+            gameOverScreen.classList.add('hidden');
+            phaseTransitionScreen.classList.add('hidden');
+
+            const nameInput = document.getElementById('player-name');
+            nameInput.value = '';
+            nameInput.style.borderColor = 'rgba(0,242,254,0.4)';
+            nameInput.placeholder = 'Digite seu nome';
+            document.getElementById('player-grau').value = 'Fundamental';
+
+            startScreen.classList.remove('hidden');
+            fetchRanking();
         }
 
         function goToPhase(index) {
@@ -736,6 +829,10 @@
                 `Eficiência renal: <strong>${efficiency}%</strong><br>` +
                 `A taxa de filtração ficou muito alta para o seu sistema!`;
             gameOverScreen.classList.remove('hidden');
+
+            if (phase.endless && score > 0) {
+                submitScore(playerName, playerGrau, score);
+            }
         }
 
         function gameLoop() {
