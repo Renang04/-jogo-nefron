@@ -776,6 +776,9 @@
             molecules = [];
             particles = [];
             floatTexts = [];
+            combo = 1;
+            comboTimer = 0;
+            comboVal.innerText = 'x1';
 
             phaseVal.innerText = `${index + 1}`;
             phaseNameVal.innerText = phase.name.split(': ')[1] || phase.name;
@@ -911,10 +914,4 @@
                 floatTexts[i].update();
                 floatTexts[i].draw();
                 if (floatTexts[i].alpha <= 0) floatTexts.splice(i, 1);
-            }
-
-            requestAnimationFrame(gameLoop);
-        }
-    </script>
-</body>
-</html>
+          
